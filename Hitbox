@@ -1,0 +1,126 @@
+-- Người viết: An
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Cấu hình
+local hitboxEnabled = false
+local hitboxSize = Vector3.new(5, 5, 5) -- kích thước mặc định
+local hitboxColor = Color3.fromRGB(230, 230, 230) -- trắng bạc
+local transparency = 0.3
+
+-- Tạo GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HitboxGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 100, 0, 30)
+toggleButton.Position = UDim2.new(0, 10, 0, 10)
+toggleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggleButton.BackgroundTransparency = 0.2
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Text = "Bật Hitbox"
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 18
+toggleButton.Parent = screenGui
+
+-- Tạo Hitbox
+local function createHitbox(character)
+    if not character then return end
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Nếu đã có hitbox cũ thì xóa
+    local old = workspace:FindFirstChild(character.Name .. "_Hitbox")
+    if old then old:Destroy() end
+
+    -- Tạo hitbox mới
+    local adornment = Instance.new("BoxHandleAdornment")
+    adornment.Name = character.Name .. "_Hitbox"
+    adornment.Adornee = root
+    adornment.Size = hitboxSize
+    adornment.Color3 = hitboxColor
+    adornment.Transparency = transparency
+    adornment.AlwaysOnTop = true
+    adornment.ZIndex = 10
+    adornment.Parent = workspace
+end
+
+-- Xóa Hitbox
+local function removeHitbox(character)
+    if not character then return end
+    local hitbox = workspace:FindFirstChild(character.Name .. "_Hitbox")
+    if hitbox then
+        hitbox:Destroy()
+    end
+end
+
+-- Update Hitboxes
+local function updateHitboxes()
+    for _, player in ipairs(Players:GetPlayers()) do
+        local char = player.Character
+        if char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+            if hitboxEnabled then
+                createHitbox(char)
+            else
+                removeHitbox(char)
+            end
+        end
+    end
+end
+
+RunService.RenderStepped:Connect(updateHitboxes)
+
+-- Khi nhấn nút bật/tắt
+toggleButton.MouseButton1Click:Connect(function()
+    hitboxEnabled = not hitboxEnabled
+    toggleButton.Text = hitboxEnabled and "Tắt Hitbox" or "Bật Hitbox"
+
+    if not hitboxEnabled then
+        for _, player in ipairs(Players:GetPlayers()) do
+            removeHitbox(player.Character)
+        end
+    end
+end)
+
+-- Kéo thả nút
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+toggleButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or 
+       input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = toggleButton.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+toggleButton.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or 
+       input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        toggleButton.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
